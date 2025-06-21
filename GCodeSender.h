@@ -18,17 +18,8 @@ V1.0:可以正常使用3个发送器函数
 
 #include <Arduino.h>
 #include <WString.h>
-
-//软串口函数调用
-/*
-  Mega 和 Mega 2560 上并非所有引脚都支持变化中断，因此仅以下引脚可用于 RX：
-  10、11、12、13、50、51、52、53、62、63、64、65、66、67、68、69
-*/
+#include "config.h"
 #include <SoftwareSerial.h>
-#define SOFTWARE_RX_PIN 50 //默认软串口引脚
-#define SOFTWARE_TX_PIN 51
-
-#define SENDING_DELAY_TIME 1
 
 
 class GCodeSender {
@@ -37,7 +28,7 @@ class GCodeSender {
     //带参：软串口引脚
     //GCodeSender (int RXpin, int TXpin); 
     ~GCodeSender();
-    void serialBegin(long bridgeBaud, long grblBaud);
+    void serialBegin();
 
     ///////Tools
     //发送信息至全体Grbl;q/Q=quit
@@ -51,8 +42,10 @@ class GCodeSender {
     void Debug();
     #endif
     
-    //serial实例化
+    //serial实例化 SOFTWARE_RX_PIN_2
     SoftwareSerial *bridgeSerial = new SoftwareSerial(SOFTWARE_RX_PIN, SOFTWARE_TX_PIN);
+    //SoftwareSerial *triggerSerial = new SoftwareSerial(SOFTWARE_RX_PIN_2, SOFTWARE_TX_PIN_2);
+
     HardwareSerial *serialPort[4] = {&Serial, &Serial1, &Serial2, &Serial3};
     //结构声明，储存Grbls的相关参数
     struct Grbls {
@@ -64,7 +57,7 @@ class GCodeSender {
 
     //立即发送储存在currentCmd中的数据,并判断是否有主机返回error
     bool sendNow();  //error（false）输出上一指令
-    bool sendNowWithoutBack(); //error（false）不返回上一指令(配置指令使用此方法)
+    bool sendNowWithoutBack(); //仅发送指令，并返回真值
     bool sendNowAutoRetry(); //error（false）重试3次，每条指令发送1次
 
     //核心函数
@@ -80,7 +73,8 @@ class GCodeSender {
   private:
     
     //Tools：
-
+    //检查各串口是否有效连接    
+    void _establishContact();
     //清除缓存区数据
     void _serialClean();
     void _serialClean(int witchPort);

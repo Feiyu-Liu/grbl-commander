@@ -2,39 +2,13 @@
 #ifndef GCODECTRL_H
 #define GCODECTRL_H
 
-#include "GCodeSender.h"
-#include "Arc.h"
 #include <Arduino.h>
 #include <WString.h>
 #include <EEPROM.h>
 
-////CONFIG//////
-#define ROCKER_SPEED 10000  //摇杆控制电机默认运动速度
-#define STEPPERS_SPEED 10000  //电机运行默认速度
-#define SENDING_DELAY 0 //指令发送等待时间（毫秒）
-#define STRAIGHT_TO_ARC_DELAY 0 //直线转弧形运动等待时间（秒）
+#include "GCodeSender.h"
+#include "Arc.h"
 
-#define DYNAMIC_SENSOR_SENSITIVITY 500 //探测灵敏度
-#define SHAKENESS_DELAY_TIME 300 //抖动消除等待时间（ms）
-#define TRIAL_TIME 7 //每次录音时间（s）
-#define DYNAMIC_TRIGGER_PIN 22 //动态试验窗口音频trigger引脚
-#define DYNAMIC_TRIGGER_ON 1 //是否开启窗口开始旋转的音频trigger,1=on,0=off
-#define MOTION_CAPTURE_TRIGGER 23
-
-
-//引脚配置
-#define S_X_PIN A0
-#define S_Y_PIN A1
-#define BUTTON_0_PIN 45
-#define BUTTON_1_PIN 46
-#define BUTTON_2_PIN 47
-#define BUTTON_3_PIN 48
-#define BUTTON_4_PIN 49
-
-
-//debug
-//#define serialDebug
-//#define voidDebug
 
 class GCodeCtrl {
   public:
@@ -44,7 +18,7 @@ class GCodeCtrl {
     void debug();
 
     //Serial初始化（需要在主程序的set up里调用）
-    void serialBegin(long bridgeBaud, long grblBaud);
+    void serialBegin();
 
     //Jogging相关方法
     void rockerController();  //摇杆控制电机,block程序运行
@@ -62,10 +36,10 @@ class GCodeCtrl {
       4----------3
     */
 
-    void automaticArrival(float WindowsParameter[3][2]);//*路径规划，全自动到达目标点
+    void automaticArrival(float WindowsParameter[3][2]);//路径规划，全自动到达目标点
 
     //配置
-    void changeSteppersSpeed(float speed);  //改变电机运行速度
+    void changeSteppersSpeed();  //改变电机运行速度
 
     //工具
     void eepromRead();//从eeprom中读取断电前数据

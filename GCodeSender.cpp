@@ -4,21 +4,29 @@
 
 
 GCodeSender::GCodeSender () {
-
 }
 
 GCodeSender::~GCodeSender () {
 
 }
 
-
-void GCodeSender::serialBegin(long bridgeBaud, long grblBaud) {
+void GCodeSender::serialBegin() {
   delay(10);
   for (int i=0;i<4;i++) {
-    serialPort[i]->begin(grblBaud);
+    serialPort[i]->begin(GRBL_BAUD_RATE);
+    serialPort[i]->setTimeout(SERIAL_TIMEOUT);
   }
-  bridgeSerial->begin(bridgeBaud);
+  bridgeSerial->begin(BRIDGE_BAUD_RATE);
+  bridgeSerial->setTimeout(SERIAL_TIMEOUT);
+
+  //triggerSerial->begin(TIGGER_BAUD_RATE);
+  //triggerSerial->begin(SERIAL_TIMEOUT);
+
+  if (IS_ESTABLISH_CONTACT){
+    this->_establishContact();
+  }
 }
+
 
 #ifdef voidDebug
 void GCodeSender::Debug () {
@@ -32,13 +40,10 @@ void GCodeSender::computerCtrl_Universal () {
   String bridgeCmd = "";
   while (1) {
     //接受bridge数据
-    bridgeCmd = "";
-    while (bridgeSerial->available()) { 
-      char tempChar = bridgeSerial->read();
-      bridgeCmd += (char)tempChar;
+    if (bridgeSerial->available()) { 
+      bridgeCmd = bridgeSerial->readString();
       delay(10);
-    }
-    if (bridgeCmd != "") {
+
       String temp = bridgeCmd;
       temp.trim();
       if (temp == "q" || temp == "Q") {
@@ -46,78 +51,79 @@ void GCodeSender::computerCtrl_Universal () {
         bridgeSerial->println(F("----Universal Control Finished----"));
         break;
       }
-      bridgeSerial->print(F("Sending your Cmd:"));
-      bridgeSerial->println(bridgeCmd);
+      bridgeSerial->println("<-TX:\n" + bridgeCmd);
       for (int i=0;i<4;i++) {
-        grblsArray[i]->currentCmd = bridgeCmd;
+        grblsArray[i]->currentCmd = bridgeCmd + "\n";
       }
       //发送指令
-      this->sendNow();
-      bridgeSerial->println(F("Finished")); 
+      serialPort[0]->print(grblsArray[0]->currentCmd);
+      serialPort[1]->print(grblsArray[1]->currentCmd);
+      serialPort[2]->print(grblsArray[2]->currentCmd);
+      serialPort[3]->print(grblsArray[3]->currentCmd);
     }
+    
+    //接收grbl数据
+    if (serialPort[0]->available() || serialPort[1]->available() || serialPort[2]->available() || serialPort[3]->available()) {
+      String grblRec[4];
+      for (int i = 0; i < 4; i++){
+        grblRec[i] = serialPort[i]->readString();
+      }
+      for (int i = 0; i < 4; i++){
+        bridgeSerial->println("->RX:"+String(i+1)+"\n" + grblRec[i]);
+      }
+      bridgeSerial->println(F("----RX End----"));
+    }
+    
   }
   
 }
 
 void GCodeSender::computerCtrl_Specific(){
   bridgeSerial->println(F("++++++Specific Control Begin++++++"));
-  String bridgeCmd = "";
-  String tempStr = "";
+  char firstChar;
+  bool isQiut = false;
   while (1) {
     bridgeSerial->println(F("choose the grbl:(send num 1~4)"));
     int grblNum = 0;
     while (!bridgeSerial->available()) {}
     if (bridgeSerial->available()) { 
-      grblNum = bridgeSerial->parseInt();
-      grblNum = grblNum-1;
+      firstChar = bridgeSerial->read();
+      grblNum = firstChar - '0' - 1; //ASCII码相减得到整数值
       this->_serialClean(0);
       if (-1 < grblNum && grblNum < 4) {
-        bridgeSerial->print(F("->grbl_"));
+        bridgeSerial->print(F("<-grbl_"));
         bridgeSerial->println(grblNum+1);
         while (1) {
-          bridgeCmd = "";
-          String grblRec = "";
-          while (bridgeSerial->available()) { 
-            char tempChar2 = bridgeSerial->read();
-            bridgeCmd += (char)tempChar2;
-            delay(10);
-          }
-          if (bridgeCmd != "") {
-            tempStr = bridgeCmd;
-            tempStr.trim();
-            if (tempStr == "q" || tempStr == "Q") {
+          // read from computer, send to grbl
+          if (bridgeSerial->available()) {
+            String bridgeCmd = bridgeSerial->readString();
+            if (bridgeCmd == "q") {
+              bridgeSerial->println();
+              break;
+            } else if (bridgeCmd == "Q") {
+              isQiut = true;
               break;
             }
-            bridgeSerial->print(F("TX->"));
-            bridgeSerial->println(bridgeCmd);
-            grblsArray[grblNum]->currentCmd = bridgeCmd;
-            delay(50);
-            serialPort[grblNum]->print(grblsArray[grblNum]->currentCmd);
-            delay(50);
-            
+            bridgeSerial->println("<-TX:\n" + bridgeCmd);
+            serialPort[grblNum]->print(bridgeCmd+"\n");
           }
-
-          while (serialPort[grblNum]->available()) { 
-            char tempChar2 = serialPort[grblNum]->read();
-            grblRec += (char)tempChar2;
-            delay(10);
+          
+          // read from grbl, send to computer
+          if (serialPort[grblNum]->available()) {
+            String grblRec = serialPort[grblNum]->readString();
+            bridgeSerial->println("->RX:\n" + grblRec + "----RX End----");
           }
-          if (grblRec != "") {
-            grblRec.trim();
-            bridgeSerial->print(F("RX->"));
-            bridgeSerial->println(grblRec);
-            _serialClean(grblNum+1);
-          }
-
         }
         this->_serialClean();
+      } else if (firstChar == 'Q') {
+        isQiut = true;
       } else {
         bridgeSerial->println(F("Unknown Command"));
+        bridgeSerial->println(grblNum);
         this->_serialClean(0);
-
       }
     }
-    if (tempStr == "Q") {
+    if (isQiut) {
       this->_serialClean();
       bridgeSerial->println(F("----Specific Control Finished----"));
       break;
@@ -153,20 +159,19 @@ void GCodeSender::computerCtrl_Batch(){
       
       switch (tempChar2) {
         case '1':
-          grblsArray[0]->currentCmd = bridgeCmd;
+          grblsArray[0]->currentCmd = bridgeCmd +"\n";
           bridgeSerial->print(F("grbl_1: command saved"));
-
           break;
         case '2':
-          grblsArray[1]->currentCmd = bridgeCmd;
+          grblsArray[1]->currentCmd = bridgeCmd+"\n";
           bridgeSerial->print(F("grbl_2: command saved"));
           break;
         case '3':
-          grblsArray[2]->currentCmd = bridgeCmd;
+          grblsArray[2]->currentCmd = bridgeCmd+"\n";
           bridgeSerial->print(F("grbl_3: command saved"));
           break;
         case '4':
-          grblsArray[3]->currentCmd = bridgeCmd;
+          grblsArray[3]->currentCmd = bridgeCmd+"\n";
           bridgeSerial->print(F("grbl_4: command saved"));
           break;
         case 's': case 'S':
@@ -178,7 +183,6 @@ void GCodeSender::computerCtrl_Batch(){
         default:
           break;
       }
-     
     }
     if (!quitOrNot) {
       bridgeSerial->println(F("----Batch Control Finished----"));
@@ -342,46 +346,8 @@ bool GCodeSender::sendNowWithoutBack() {
   serialPort[2]->print(grblsArray[2]->currentCmd);
   serialPort[3]->print(grblsArray[3]->currentCmd);
   delay(SENDING_DELAY_TIME);
-  bool returnState;
-  String returnString[4];
-  
-  for (int i=0; i<4; i++) {
-    while (serialPort[i]->available()) { 
-      char tempChar = serialPort[i]->read();
-      returnString[i] += (char)tempChar;
-      delay(10);
-    }
-    returnString[i].trim();
-  }
-
-  bool judgeErrorOrNot = true; 
-  for (int i=0; i<4; i++) {
-    if (returnString[i] != "ok") {
-      #ifdef serialDebug
-      bridgeSerial->print(F("->error"));
-      bridgeSerial->print(i+1);
-      #endif
-      judgeErrorOrNot = false;
-    }  
-  }
-  if (judgeErrorOrNot) {
-    //全部ok，覆写lastCmd，刷新currentCmd
-    bridgeSerial->println(F("->ok"));
-    for (int i=0;i<4;i++) {
-      grblsArray[i]->lastCmd = grblsArray[i]->currentCmd;
-      grblsArray[i]->currentCmd = "";
-    }
-    this->_serialClean();
-    returnState = true;
-  } else if (!judgeErrorOrNot) {
-    //存在error，刷新currentCmd，不刷新lastCmd
-    for (int i=0;i<4;i++) {
-      grblsArray[i]->currentCmd = "";
-    }
-    this->_serialClean();
-    returnState = false;
-  }
-  return returnState;
+  this->_serialClean();
+  return true;
 }
 
 bool GCodeSender::sendNowAutoRetry(){
@@ -460,14 +426,44 @@ void GCodeSender::stopFeeding(){
   serialPort[1]->print("!\n");
   serialPort[2]->print("!\n");
   serialPort[3]->print("!\n");
-  delay(50); 
-  delay(50);
+  delay(100); 
   serialPort[0]->print("!\n");
   serialPort[1]->print("!\n");
   serialPort[2]->print("!\n");
   serialPort[3]->print("!\n");
   delay(50); 
   this->_serialClean();
+}
+
+void GCodeSender::_establishContact(){
+  bridgeSerial->println(F("正在初始化..."));
+  unsigned long startTime;
+  unsigned long myTime;
+  for (int i=0;i<4;i++) {
+    startTime = millis();
+    bool note1 = false;
+    bool note2 = false;
+    while (!serialPort[i]->find("ok")) {
+      this->_serialClean(i+1);
+      serialPort[i]->print("\n");
+      myTime = millis() - startTime;
+      if (CONTACT_TIMEOUT/4 < myTime && myTime < CONTACT_TIMEOUT && !note1) {
+          bridgeSerial->println("请连接grbl " + String(i+1));
+          note1 = true;
+          note2 = true;
+      } else if (CONTACT_TIMEOUT < myTime) {
+        bridgeSerial->println("grbl " + String(i+1) + "连接超时");
+        note2 = false;
+        break;
+      }
+      delay(100);
+    }
+    if (note2) {
+      bridgeSerial->println(F("已连接!"));
+    }
+  }
+  this->_serialClean();
+  bridgeSerial->println(F("完成"));
 }
 
 void GCodeSender::_serialClean(){

@@ -12,15 +12,8 @@ V2:可以计算绕顶点旋转的目的坐标
 #ifndef ARC_H
 #define ARC_H
 #include <Arduino.h>
+#include "config.h"
 
-//#define serialDEBUG
-//#define DEBUG1
-
-#define CW true //顺时针 = 1
-#define CCW false //逆时针 = 0
-#define PI 3.1415926
-
-#define DELAY_TIME 0
 
 class Arc {
   public:

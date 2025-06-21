@@ -1,10 +1,24 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "GCodeCtrl.h"
-#include <U8glib.h>
+/////////////////////////////////
+/////////////////////Interact.h/
+/////////////////////////////////
+//电机运动参数
+const float slide[2] = {80, 8532};  //长度（cm）、总步进数
+const float teleL[2] = {55, 88737}; 
+const float teleS[2] = {35, 56113}; 
 
-#define SPEAKER_PIN 3  //扬声器引脚
+//误差补偿值(CM)：不够减，过了加
+const float compensate[4][2] = { 
+  {62.6, -1}, //(1B,1A)
+  {80, 55.5}, //(2A,2B)
+  {63, 0}, //(3B, 3A)
+  {80, 55.5}  //(4A,4B)
+};
+
+//扬声器引脚
+#define SPEAKER_PIN 3  
 //显示屏引脚
 #define SCREEN_SCK 22
 #define SCREEN_MOSI 23
@@ -14,306 +28,69 @@
 #define SCREEN_LED_PIN 27
 #define SCREEN_LED_BRIGHTNESS 28
 
+/////////////////////////////////
+/////////////////////Arc.h/
+/////////////////////////////////
 
-//电机运动参数
-float slide[2] = {80, 8532};  
-float teleL[2] = {55, 88737}; 
-float teleS[2] = {35, 56113}; 
+#define CW true //顺时针 = 1
+#define CCW false //逆时针 = 0
+#define PI 3.1415926
 
-//实例化
-GCodeCtrl myController(slide, teleL, teleS);  
-GCodeSender MySender2;
-U8GLIB_NHD_C12864 u8g(SCREEN_SCK, SCREEN_MOSI, SCREEN_CS, SCREEN_RS, SCREEN_RST);
+#define DELAY_TIME 0
 
-//参数
-int nowTrialTime = 0;
+/////////////////////////////////
+/////////////////////GCodeSender.h/
+/////////////////////////////////
 
-//误差补偿值(CM)：不够减，过了加
-float compensate[4][2] = { 
-  {62.6, -1}, //(1B,1A)
-  {80, 55.5}, //(2A,2B)
-  {63, 0}, //(3B, 3A)
-  {80, 55.5}  //(4A,4B)
-};
+#define GRBL_BAUD_RATE 115200 //grbl比特率(必须为115200)
 
-
-//坐标预设1
-float windows[12][3][2]= 
-{
-  { //预设1
-    {40, 40}, //winCenter
-    {50, 20}, //winSize
-    {0, 0}  //dir&angle
-  },
-  { //预设2
-    {40, 40},
-    {20, 15},
-    {0, 0}
-  },
-  { //预设3
-    {40, 40},
-    {50, 20},
-    {CCW, PI/4}
-  },
-  { //预设4
-    {40, 40},
-    {20, 15},
-    {CCW, PI/4}
-  },
-  { //预设5
-    {40, 40},
-    {50, 20},
-    {CW, PI/4}
-  },
-  { //预设6
-    {40, 40},
-    {20, 15},
-    {CW, PI/4}
-  },
-  { //预设7
-    {40, 40},
-    {15, 50},
-    {0, 0}
-  },
-  { //预设8
-    {40, 40},
-    {10, 20},
-    {0, 0}
-  },
-    { //预设9
-    {40, 40},
-    {15, 50},
-    {0, 0}
-  },
-  { //预设10
-    {40, 40},
-    {10, 20},
-    {0, 0}
-  },
-    { //预设11
-    {40, 40},
-    {15, 50},
-    {0, 0}
-  },
-  { //预设12
-    {40, 40},
-    {10, 20},
-    {0, 0}
-  },
-};
+//软串口函数调用
 /*
-//坐标预设2
-float windows[12][3][2]= 
-{
-  { //预设1  188 Va
-    {40, 40}, //winCenter   
-    {36.3, 60}, //winSize   
-    {0, 0}  //dir&angle    
-  },
-  { //预设2  188 Vb
-    {40, 40},  
-    {24.2, 60},
-    {0, 0}
-  },
-  { //预设3  188 Vc
-    {40, 40},
-    {16.13, 60},
-    {0, 0}
-  },
-  { //预设4  189 va
-    {40, 40},
-    {35.7, 60},
-    {0, 0}
-  },
-  { //预设5 189 Vb
-    {40, 40},
-    {23.8, 60},
-    {0, 0}
-  },
-  { //预设6  189 Vc
-    {40, 40},
-    {15.87, 60},
-    {0, 0}
-  },
-  { //预设7 198 Va
-    {40, 40},
-    {34.65, 60},
-    {0, 0}
-  },
-  { //预设8 198 Vb
-    {40, 40},
-    {23.1, 60},
-    {0, 0}
-  },
-  { //预设9 198 Vc
-    {40, 40},
-    {15.4, 60},
-    {0, 0}
-  },
-  { //预设10 199 Va
-    {40, 40},
-    {39.15, 60},
-    {0, 0}
-  },
-  { //预设11 199 Vb
-    {40, 40},
-    {26.1, 60},
-    {0, 0}
-  },
-  { //预设12 199 Vc
-    {40, 40},
-    {17.4, 60},
-    {0, 0}
-  },
-};
+  Mega 和 Mega 2560 上并非所有引脚都支持变化中断，因此仅以下引脚可用于 RX：
+  10、11、12、13、50、51、52、53、62、63、64、65、66、67、68、69
 */
-//蝙蝠翼长数据
-float wingLength[4]={48.4, 47.6, 46.2, 52.2}; //188,189,198,199
-float lengthType[3] = {};
+//连接电脑的软串口引脚
+#define SOFTWARE_RX_PIN 50  //RX
+#define SOFTWARE_TX_PIN 51  //TX
+#define BRIDGE_BAUD_RATE 9600 //比特率(软串口的比特率不宜过高)
 
-//欢迎界面
-void display_1(){
-  String displayWords_1 = F("COMMANDER 4.5 Pro\n\n是否进行校准?\n1=开始校准, 0=不校准\n");
-  myController.MySender->bridgeSerial->print(displayWords_1);
-  //等待串口回应
-  while (!myController.MySender->bridgeSerial->available()) {
-    delay(10);
-  }  
-  char data = myController.MySender->bridgeSerial->read();
-  while (myController.MySender->bridgeSerial->available()) { //仅读取一个字节数据，其他数据清除
-    myController.MySender->bridgeSerial->read();
-    delay(5);
-  }
+//预留的软串口引脚，可用作trigger触发
+#define SOFTWARE_RX_PIN_2 52  //RX
+#define SOFTWARE_TX_PIN_2 53  //TX
+#define TIGGER_BAUD_RATE 9600 //比特率
 
-  if (data == '1') {
-    myController.MySender->bridgeSerial->println(F("正在校准..."));
-    tone(SPEAKER_PIN,2000, 200);
-    myController.steppersCalibration(compensate); 
-    myController.MySender->bridgeSerial->println(F("已就绪!"));
-  } else if (data == '0') {
-    tone(SPEAKER_PIN,2000, 50);
-    delay(100);
-    tone(SPEAKER_PIN,2000, 50);
-    delay(100);
-    tone(SPEAKER_PIN,2000, 50);
-    delay(100);
-    myController.eepromRead();
-    delay(10);
-    myController.MySender->bridgeSerial->println(F("已就绪!"));
-  } else {
-    myController.MySender->bridgeSerial->println(F("未知指令，开始校准..."));
-    myController.steppersCalibration(compensate); 
-    myController.MySender->bridgeSerial->println(F("已就绪!"));
-  }
-  String dispalyWord_2 = F(" \n发送预设窗口编号:(1-9) // \nC: 摇杆控制\nV: 速度设置\nF: 窗口自由控制模式\n$: 显示预设窗口\nN: 实验次数显示\n!: 紧急停止\n\nD: 动态实验模式1(窗口绕中心点旋转)\nE: 动态实验模式2(窗口平移)\nG: 动态实验模式3(窗口绕顶点旋转)\n");
-  myController.MySender->bridgeSerial->println(dispalyWord_2);
+#define IS_ESTABLISH_CONTACT 1 //是否检查串口的连接情况（若有串口未连接，则会提示并等待连接）
+#define SERIAL_TIMEOUT 100 //设置等待串行数据的最大毫秒
+#define SENDING_DELAY_TIME 1
+#define CONTACT_TIMEOUT 30000 //检查串口连接超时时间（ms）
 
-}
+/////////////////////////////////
+/////////////////////GCodeCtrl.h/
+/////////////////////////////////
+#define ROCKER_SPEED 10000  //摇杆控制电机默认运动速度
+#define STEPPERS_SPEED 10000  //电机运行默认速度
+#define SENDING_DELAY 0 //指令发送等待时间（毫秒）
+#define STRAIGHT_TO_ARC_DELAY 0 //直线转弧形运动等待时间（秒）
 
-//窗口信息显示
-void display_2 (float winCenter[2], float winSize[2]) {
-  //tone(SPEAKER_PIN,2000, 50);
-  //delay(100);
-  //tone(SPEAKER_PIN,2000, 50);
-  myController.MySender->bridgeSerial->print(F("POS:("));
-  myController.MySender->bridgeSerial->print(winCenter[0]);
-  myController.MySender->bridgeSerial->print(",");
-  myController.MySender->bridgeSerial->print(winCenter[1]);
-  myController.MySender->bridgeSerial->println(")");
-  myController.MySender->bridgeSerial->print(F("SIZE:("));
-  myController.MySender->bridgeSerial->print(winSize[0]);
-  myController.MySender->bridgeSerial->print(",");
-  myController.MySender->bridgeSerial->print(winSize[1]);
-  myController.MySender->bridgeSerial->println(")");
-  myController.MySender->bridgeSerial->println("waiting......");
-  //delay(1500);
-}
 
-//打印预设窗口
-void display_3(){
-  myController.MySender->bridgeSerial->println("DEFAULTS");
-  for (int i=0;i<8;i++ ) {
-    myController.MySender->bridgeSerial->println(i+1);
-    for (int m=0;m<3;m++) {
-      for (int k=0;k<2;k++) {
-        myController.MySender->bridgeSerial->print(windows[i][m][k]);
-        myController.MySender->bridgeSerial->print("  ");
-      }
-      myController.MySender->bridgeSerial->print("\n");
-    }
-    delay(500);
-  }
-}
+//动态实验设置
+#define DYNAMIC_TRIGGER_PIN 22 //动态试验窗口音频trigger引脚
+#define DYNAMIC_TRIGGER_ON 1 //是否开启窗口开始旋转的音频trigger,1=on,0=off
+#define TRIAL_TIME 7 //每次录音时间（s）
+#define MOTION_CAPTURE_TRIGGER 23 //动作捕捉trigger
 
-//数字显示
-void drawNumber(int theNum) {
-  u8g.setPrintPos(10, -10);
-  u8g.print(theNum); 
-}
+//遥杆引脚配置
+#define S_X_PIN A0
+#define S_Y_PIN A1
+#define BUTTON_0_PIN 45
+#define BUTTON_1_PIN 46
+#define BUTTON_2_PIN 47
+#define BUTTON_3_PIN 48
+#define BUTTON_4_PIN 49
 
-//实验次数显示
-void drawTrialTimes(){
-  myController.MySender->bridgeSerial->println("Send the trial number:");
-  String bridgeCmd;
-  analogWrite(SCREEN_LED_PIN, SCREEN_LED_BRIGHTNESS);
-  while (1) {
-    //接受bridge数据
-    bridgeCmd = "";
-    while (myController.MySender->bridgeSerial->available()) { 
-      char tempChar = myController.MySender->bridgeSerial->read();
-      bridgeCmd += (char)tempChar;
-      delay(10);
-    }
-    if (bridgeCmd != "") {
-      String temp = bridgeCmd;
-      temp.trim();
-      if (temp == "q" || temp == "Q") {
-        myController.MySender->bridgeSerial->println(F("----Finished----"));
-        break;
-      } else if (temp == "current number" || temp == "cn" ) {
-        myController.MySender->bridgeSerial->print(F("current num: "));
-        myController.MySender->bridgeSerial->println(nowTrialTime);
-        continue;
-      } 
-      nowTrialTime = temp.toInt();
-      myController.MySender->bridgeSerial->print(F("Times: "));
-      myController.MySender->bridgeSerial->println(nowTrialTime);
-      
-      u8g.firstPage();
-      do {
-        drawNumber(nowTrialTime);
-      } while (u8g.nextPage());
-      delay(50);
-    }
-  }
-}
-
-//改变电机速度
-void changeSpeed(){
-  myController.MySender->bridgeSerial->println("Send the speed:");
-  String bridgeCmd;
-  float newSpeed;
-  while (1) {
-    //接受bridge数据
-    bridgeCmd = "";
-    while (myController.MySender->bridgeSerial->available()) { 
-      char tempChar = myController.MySender->bridgeSerial->read();
-      bridgeCmd += (char)tempChar;
-      delay(10);
-    }
-    if (bridgeCmd != "") {
-      String temp = bridgeCmd;
-      temp.trim();
-      if (temp == "q" || temp == "Q") {
-        myController.MySender->bridgeSerial->println(F("----Finished----"));
-        break;
-      }
-      newSpeed = temp.toInt();
-      myController.changeSteppersSpeed(newSpeed);
-      delay(50);
-    }
-  }
-}
-
+//debug
+//#define serialDebug
+//#define voidDebug
+//#define DEBUG1
 
 #endif

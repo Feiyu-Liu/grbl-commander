@@ -343,9 +343,6 @@ float *Arc::_calculateTargetCoord(float midCoord[4][2], float ANGLE, bool DIR){
   r = sqrt(temp)/2;  //圆的半径*/
   float realAngle;
   if (DIR == true) {realAngle = -ANGLE;} else {realAngle = ANGLE;};
-  #ifdef DEBUG1
-  Serial.println(realAngle);
-  #endif
   //分象限,使用极坐标求解
   const int k = 0;
   for (int i=0;i<4;i++) {

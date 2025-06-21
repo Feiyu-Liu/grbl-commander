@@ -32,8 +32,8 @@ GCodeCtrl::~GCodeCtrl () {
 }
 
 //Serial初始化（需要在主程序的set up里调用）
-void GCodeCtrl::serialBegin(long bridgeBaud, long grblBaud){
-  MySender->serialBegin(bridgeBaud, grblBaud);
+void GCodeCtrl::serialBegin(){
+  MySender->serialBegin();
 }
 
 void GCodeCtrl::debug() {
@@ -763,11 +763,35 @@ void GCodeCtrl::changeRockerCtrlSpeed(int changeSpeed) {
   _rockerControllerSpeed = changeSpeed;
 }
 
-void GCodeCtrl::changeSteppersSpeed(float speed){
-  _steppersSpeed = speed;
-  MySender->bridgeSerial->print(F("Now Speed:"));
-  MySender->bridgeSerial->println(_steppersSpeed);
+void GCodeCtrl::changeSteppersSpeed(){
+  MySender->bridgeSerial->println("Now Speed:" + String(_steppersSpeed));
+  MySender->bridgeSerial->println("Send New Speed:");
+  String bridgeCmd;
+  float newSpeed;
+  while (1) {
+    //接受bridge数据
+    bridgeCmd = "";
+    while (MySender->bridgeSerial->available()) { 
+      char tempChar = MySender->bridgeSerial->read();
+      bridgeCmd += (char)tempChar;
+      delay(10);
+    }
+    if (bridgeCmd != "") {
+      String temp = bridgeCmd;
+      temp.trim();
+      if (temp == "q" || temp == "Q") {
+        MySender->bridgeSerial->println(F("----Finished----"));
+        break;
+      }
+      newSpeed = temp.toInt();
+      _steppersSpeed = newSpeed;
+      MySender->bridgeSerial->println("New Speed:" + String(_steppersSpeed));
+      delay(50);
+    }
+  }
 }
+
+
 
 void GCodeCtrl::freeControl() {
   MySender->bridgeSerial->println(F("++++++Free Control Begin++++++"));
@@ -798,22 +822,10 @@ void GCodeCtrl::freeControl() {
                 delay(2);
             }
             //打印输入的窗口数据
-            MySender->bridgeSerial->print(F("POS:("));
-            MySender->bridgeSerial->print(nextWindow[0][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[0][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("SIZE:("));
-            MySender->bridgeSerial->print(nextWindow[1][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[1][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("DIR ANGLE:("));
-            MySender->bridgeSerial->print(nextWindow[2][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[2][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->println("waiting......");
+            MySender->bridgeSerial->println("POS:("+String(nextWindow[0][0])+","+String(nextWindow[0][1])+")");
+            MySender->bridgeSerial->println("SIZE:("+String(nextWindow[1][0])+","+String(nextWindow[1][1])+")");
+            MySender->bridgeSerial->println("DIR ANGLE:("+String(nextWindow[2][0])+","+String(nextWindow[2][1])+")");
+
             //运行
             this->automaticArrival(nextWindow); 
 
@@ -882,21 +894,9 @@ void GCodeCtrl::dynamicMode(){
                 delay(2);
             }
             //打印输入的窗口数据
-            MySender->bridgeSerial->print(F("POS:("));
-            MySender->bridgeSerial->print(nextWindow[0][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[0][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("SIZE:("));
-            MySender->bridgeSerial->print(nextWindow[1][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[1][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("DIR ANGLE:("));
-            MySender->bridgeSerial->print(nextWindow[2][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[2][1]);
-            MySender->bridgeSerial->println(")");
+            MySender->bridgeSerial->println("POS:("+String(nextWindow[0][0])+","+String(nextWindow[0][1])+")");
+            MySender->bridgeSerial->println("SIZE:("+String(nextWindow[1][0])+","+String(nextWindow[1][1])+")");
+            MySender->bridgeSerial->println("DIR ANGLE:("+String(nextWindow[2][0])+","+String(nextWindow[2][1])+")");
             if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,LOW);}
             //归位写入
             homeWindow[2][0]=0;
@@ -916,33 +916,6 @@ void GCodeCtrl::dynamicMode(){
               while(!MySender->bridgeSerial->available()){}
               if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
               MySender->bridgeSerial->println("Ready For Trigger...");
-              /*
-              //等待传感器触发并消除抖动
-              unsigned long gapTime;
-              unsigned long beginTime;
-              bool quit = false;
-              while(1){
-                while (analogRead(DYNAMIC_SENSOR_PIN_1) > DYNAMIC_SENSOR_SENSITIVITY){} //等待LOW电压
-                beginTime = millis();
-                while (analogRead(DYNAMIC_SENSOR_PIN_1) < DYNAMIC_SENSOR_SENSITIVITY){  //等待HIGH电压
-                  gapTime = millis()-beginTime;
-                  if (gapTime > SHAKENESS_DELAY_TIME) {
-                    //运行
-                    MySender->bridgeSerial->println("GO!");
-                    //if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
-                    this->automaticArrival(nextWindow); //窗口运行
-                    quit = true;
-                    break;
-                  } else {
-                    continue;
-                  }
-                }
-                if (quit) {
-                  break;
-                }
-              }
-              */
-              //while (analogRead(DYNAMIC_SENSOR_PIN_1) > DYNAMIC_SENSOR_SENSITIVITY){}
               //等待串口接收动作检测信息（检测到为0）
               while(digitalRead(MOTION_CAPTURE_TRIGGER)==LOW){}
               //运行
@@ -1037,22 +1010,10 @@ void GCodeCtrl::dynamicMode2(){
                 delay(2);
             }
             //打印输入的窗口数据
-            MySender->bridgeSerial->print(F("POS:("));
-            MySender->bridgeSerial->print(nextWindow[0][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[0][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("SIZE:("));
-            MySender->bridgeSerial->print(nextWindow[1][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[1][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("DIR ANGLE:("));
-            MySender->bridgeSerial->print(nextWindow[2][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[2][1]);
-            MySender->bridgeSerial->println(")");
-            
+            MySender->bridgeSerial->println("POS:("+String(nextWindow[0][0])+","+String(nextWindow[0][1])+")");
+            MySender->bridgeSerial->println("SIZE:("+String(nextWindow[1][0])+","+String(nextWindow[1][1])+")");
+            MySender->bridgeSerial->println("DIR ANGLE:("+String(nextWindow[2][0])+","+String(nextWindow[2][1])+")");
+
             //归位写入
             MySender->bridgeSerial->println(F("Send home window:"));
             while(!MySender->bridgeSerial->available()){}
@@ -1066,28 +1027,13 @@ void GCodeCtrl::dynamicMode2(){
                 MySender->bridgeSerial->read();
                 delay(2);
             }
-            
-            MySender->bridgeSerial->print(F("POS:("));
-            MySender->bridgeSerial->print(homeWindow[0][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(homeWindow[0][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("SIZE:("));
-            MySender->bridgeSerial->print(homeWindow[1][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(homeWindow[1][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("DIR ANGLE:("));
-            MySender->bridgeSerial->print(homeWindow[2][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(homeWindow[2][1]);
-            MySender->bridgeSerial->println(")");
-
+            MySender->bridgeSerial->println("POS:("+String(homeWindow[0][0])+","+String(homeWindow[0][1])+")");
+            MySender->bridgeSerial->println("SIZE:("+String(homeWindow[1][0])+","+String(homeWindow[1][1])+")");
+            MySender->bridgeSerial->println("DIR ANGLE:("+String(homeWindow[2][0])+","+String(homeWindow[2][1])+")");
 
             this->automaticArrival(homeWindow); //窗口运行
 
             delay(3000);
-
 
             while (1){
               secLoopQuit = true;
@@ -1095,35 +1041,7 @@ void GCodeCtrl::dynamicMode2(){
               delay(100);
               //等待串口触发
               while(!MySender->bridgeSerial->available()){}
-              
               MySender->bridgeSerial->println("Ready For Trigger...");
-              /*
-              //等待传感器触发并消除抖动
-              unsigned long gapTime;
-              unsigned long beginTime;
-              bool quit = false;
-              while(1){
-                while (analogRead(DYNAMIC_SENSOR_PIN_1) > DYNAMIC_SENSOR_SENSITIVITY){} //等待LOW电压
-                beginTime = millis();
-                while (analogRead(DYNAMIC_SENSOR_PIN_1) < DYNAMIC_SENSOR_SENSITIVITY){  //等待HIGH电压
-                  gapTime = millis()-beginTime;
-                  if (gapTime > SHAKENESS_DELAY_TIME) {
-                    //运行
-                    MySender->bridgeSerial->println("GO!");
-                    //if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
-                    this->automaticArrival(nextWindow); //窗口运行
-                    quit = true;
-                    break;
-                  } else {
-                    continue;
-                  }
-                }
-                if (quit) {
-                  break;
-                }
-              }
-              */
-              //while (analogRead(DYNAMIC_SENSOR_PIN_1) > DYNAMIC_SENSOR_SENSITIVITY){}
               //等待串口接收动作检测信息（检测到为0）
               while(digitalRead(MOTION_CAPTURE_TRIGGER)==LOW){}
               //运行
@@ -1424,37 +1342,6 @@ void GCodeCtrl::dynamicMode3(){
               delay(100);
               //等待串口触发
               while(!MySender->bridgeSerial->available()){}
-              
-              //MySender->bridgeSerial->println("Ready For Trigger...");
-              /*
-              //等待传感器触发并消除抖动
-              unsigned long gapTime;
-              unsigned long beginTime;
-              bool quit = false;
-              while(1){
-                while (analogRead(DYNAMIC_SENSOR_PIN_1) > DYNAMIC_SENSOR_SENSITIVITY){} //等待LOW电压
-                beginTime = millis();
-                while (analogRead(DYNAMIC_SENSOR_PIN_1) < DYNAMIC_SENSOR_SENSITIVITY){  //等待HIGH电压
-                  gapTime = millis()-beginTime;
-                  if (gapTime > SHAKENESS_DELAY_TIME) {
-                    //运行
-                    MySender->bridgeSerial->println("GO!");
-                    //if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
-                    this->automaticArrival(nextWindow); //窗口运行
-                    quit = true;
-                    break;
-                  } else {
-                    continue;
-                  }
-                }
-                if (quit) {
-                  break;
-                }
-              }
-              */
-              //while (analogRead(DYNAMIC_SENSOR_PIN_1) > DYNAMIC_SENSOR_SENSITIVITY){}
-              //等待串口接收动作检测信息（检测到为0）
-              //while(digitalRead(MOTION_CAPTURE_TRIGGER)==HIGH){}
               //运行
               MySender->bridgeSerial->println("GO!");
               //if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
