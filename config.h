@@ -76,9 +76,14 @@ const float COMPENSATE[4][2] = {
 
 //动态实验设置
 #define DYNAMIC_TRIGGER_PIN 22 //动态试验窗口音频trigger引脚
-#define DYNAMIC_TRIGGER_ON 1 //是否开启窗口开始旋转的音频trigger,1=on,0=off
-#define TRIAL_TIME 7 //每次录音时间（s）
-#define MOTION_CAPTURE_TRIGGER 23 //动作捕捉trigger
+#define TRIAL_TIME 5 //每次录音时间（s）
+#define KEY_CONFIRM_ON 0 //----是否在每一次trial开始前等待键盘按下
+#define DYNAMIC_TRIGGER_ON 0 //-----是否开启窗口开始旋转的音频trigger,1=on,0=off
+#define MOTION_CAPTURE_TRIGGER_ON 0 //-----是否开启动作捕捉trigger
+#define MOTION_CAPTURE_TRIGGER 23 //动作捕捉trigger输入引脚
+#define RASTER_TRIGGER_ON 1 //-----是否开启光栅trigger
+#define RASTER_TRIGGER_IN A7 //光栅trigger模拟输入引脚
+#define RASTER_TRIGGER_THRESHOLD 200 //光栅trigger判断阈值（最大1024对应5v）
 
 //遥杆引脚配置
 #define S_X_PIN A0

@@ -968,11 +968,19 @@ void GCodeCtrl::dynamicMode(){
               MySender->bridgeSerial->println("Ready For Next Trial...");
               delay(100);
               //等待串口触发
-              while(!MySender->bridgeSerial->available()){}
+              if (KEY_CONFIRM_ON) {
+                while(!MySender->bridgeSerial->available()){}
+              }
               if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
               MySender->bridgeSerial->println("Ready For Trigger...");
               //等待串口接收动作检测信息（检测到为0）
-              while(digitalRead(MOTION_CAPTURE_TRIGGER)==LOW){}
+              if (MOTION_CAPTURE_TRIGGER_ON) {
+                while(digitalRead(MOTION_CAPTURE_TRIGGER)==LOW){}
+              }
+              //等待光栅trigger
+              if (RASTER_TRIGGER_ON) {
+                while(analogRead(RASTER_TRIGGER_IN) < RASTER_TRIGGER_THRESHOLD){}
+              }
               //运行
               //if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
               this->automaticArrival(nextWindow); //窗口运行
@@ -1095,12 +1103,20 @@ void GCodeCtrl::dynamicMode2(){
               MySender->bridgeSerial->println("Ready For Next Trial...");
               delay(100);
               //等待串口触发
-              while(!MySender->bridgeSerial->available()){}
+              if (KEY_CONFIRM_ON) {
+                while(!MySender->bridgeSerial->available()){}
+              }
               MySender->bridgeSerial->println("Ready For Trigger...");
               //等待串口接收动作检测信息（检测到为0）
-              while(digitalRead(MOTION_CAPTURE_TRIGGER)==LOW){}
+              if (MOTION_CAPTURE_TRIGGER_ON) {
+                while(digitalRead(MOTION_CAPTURE_TRIGGER)==LOW){}
+              }
+              //等待光栅trigger
+              if (RASTER_TRIGGER_ON) {
+                while(analogRead(RASTER_TRIGGER_IN) < RASTER_TRIGGER_THRESHOLD){}
+              }
               //运行
-              //if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
+              if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
               //窗口运行
               this->automaticArrival(nextWindow);
               MySender->bridgeSerial->println("GO!");

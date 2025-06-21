@@ -6,6 +6,7 @@
 //4.1 motor without 'any' delay
 //4.2 Pro 添加了窗口绕顶点旋转功能
 //4.4 dynamicMode2 改为动捕触发
+//5.1 添加光栅trigger
 
 #include "Interact.h"
 String cmd;  //储存指令
