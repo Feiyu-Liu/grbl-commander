@@ -15,7 +15,6 @@ class GCodeCtrl {
     GCodeCtrl(float Slide[2], float TeleL[2], float TeleS[2]); //构造函数
     ~GCodeCtrl();//析构函数
     
-    void debug();
 
     //Serial初始化（需要在主程序的set up里调用）
     void serialBegin();
@@ -23,9 +22,11 @@ class GCodeCtrl {
     //Jogging相关方法
     void rockerController();  //摇杆控制电机,block程序运行
     void changeRockerCtrlSpeed(int Speed);  //改变摇杆控制电机速度
+
     
     //核心方法
     void steppersCalibration(float compensate[4][2]); //电机校准
+    void steppersCalibration(); //读取eeprom中的坐标进行校准
     void runStraightToTarget(float WinCenter[2], float WinSize[2]);//直线运动
     void runStraightToTarget(float WinCenter[2], float WinSize[2], bool Direction, float Angle);
     void runArcToTarget(float WinCenter[2], float WinSize[2], bool Direction, float Angle);//圆弧运动(中心点为圆心)
@@ -42,14 +43,18 @@ class GCodeCtrl {
     void changeSteppersSpeed();  //改变电机运行速度
 
     //工具
-    void eepromRead();//从eeprom中读取断电前数据
+    void sleep(float sleepPos[4][2]); //关机，断电前运行
 
     //模式
     void freeControl();  //电脑设置窗口参数并运行
     void dynamicMode();  //动态试验模式（窗口绕中心点旋转）
     void dynamicMode2();  //动态试验模式2（窗口平移）
     void dynamicMode3();  //动态试验模式3（窗口绕顶点旋转）
+
+    #ifdef voidDebug
     void Debug();
+    #endif
+
     GCodeSender *MySender = new GCodeSender;
 
   private:
@@ -80,6 +85,8 @@ class GCodeCtrl {
     //用于数组返回值
     float _calculateEveryCoordReturn[8];
     float _coordinateRebuildReturn[8];
+    //设置电机加速度
+    void _setAcceleration(float accel); 
     
 };
 

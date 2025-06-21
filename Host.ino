@@ -1,6 +1,6 @@
 
         /////////////////////////////////////
-//////////////////// Commander 4.6 Pro ////////////////////
+//////////////////// Commander 5 Pro ////////////////////
       /////////////////////////////////////
 
 //4.1 motor without 'any' delay
@@ -124,6 +124,14 @@ void loop() {
         tone(SPEAKER_PIN,2000, 50);
         delay(500);
         break;
+      #ifdef voidDebug
+      case 'x': case 'x': //Debug
+        myController.sleep(SLEEP_POS);
+        break;
+      #endif
+      case 'p': case 'P': //关机
+        myController.sleep(SLEEP_POS);
+        break;
       default:  //未知指令
         myController.MySender->bridgeSerial->println(charCmd);
         myController.MySender->bridgeSerial->println(F("未知命令"));
@@ -131,9 +139,7 @@ void loop() {
         delay(500);
         break;
     }
-    myController.MySender->bridgeSerial->println("");
-    myController.MySender->bridgeSerial->println(F("就绪!"));
-    myController.MySender->bridgeSerial->println("");
+    myController.MySender->bridgeSerial->print(F("\n就绪!\n"));
   }
   delay(10);
 }

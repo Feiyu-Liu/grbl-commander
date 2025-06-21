@@ -36,14 +36,13 @@ void GCodeCtrl::serialBegin(){
   MySender->serialBegin();
 }
 
-void GCodeCtrl::debug() {
-  //this->steppersCalibration();
+#ifdef voidDebug
+void GCodeCtrl::Debug() {
+
   
 }
+#endif
 
-void GCodeCtrl::eepromRead(){
-  this->_eepromRead();
-}
 
 void GCodeCtrl::steppersCalibration(float compensate[4][2]){
   #ifdef serialDebug
@@ -107,6 +106,48 @@ void GCodeCtrl::steppersCalibration(float compensate[4][2]){
   //EEPROM写入
   
   this->_eepromWrite();
+}
+
+void GCodeCtrl::steppersCalibration(){
+
+  this->_eepromRead();
+  delay(10);
+
+  //读取当前坐标
+  float currentPos[4][2];
+  for (int i=0;i<4;i++) {
+    for (int k=0;k<2;k++) {
+      currentPos[i][k] = _currentCoord[i][k];
+    }
+  }
+
+  //世界坐标系转化为输出坐标系
+  float outPutPos[4][2];
+  float *ptrOutPutPos = this->_coordinateRebuild(currentPos);
+  for (int i=0;i<4;i++) {  
+    for (int k=0;k<2;k++) {
+      outPutPos[i][k] = *ptrOutPutPos;
+      ptrOutPutPos++;
+    }
+  }
+  //cm转mm
+  for (int i=0;i<4;i++) {
+    for (int k=0;k<2;k++) {
+      outPutPos[i][k] = this->_unitConversionToMm(outPutPos[i][k]);
+    }
+  }
+  
+  //归零并补偿工作坐标
+  String cmd = "";
+  for (int i=0;i<4;i++) {
+    cmd = "G92 X" + String(outPutPos[i][0]) + "Y" + String(outPutPos[i][1]) + "\n";
+    MySender->grblsArray[i]->currentCmd = cmd;
+    delay(10);
+  }
+  
+  //发送并自动重试
+  MySender->sendNowAutoRetry();
+
 }
 
 void GCodeCtrl::runStraightToTarget(float WinCenter[2], float WinSize[2]){
@@ -697,67 +738,83 @@ void GCodeCtrl::automaticArrival(float WindowsParameter[3][2]){
 
 }
 
-void GCodeCtrl::rockerController () {
-  bool btn1, btn2, btn3, btn4;
-  int rocker_X, rocker_Y;
-  int buttonNumber = 1; 
-  String joggingCmd[8] = {"X0.5", "Y0.5", "X-0.5", "Y-0.5", "X0.5 Y0.5", "X-0.5 Y0.5", "X-0.5 Y-0.5", "X0.5 Y-0.5"};
-  String finalCmd = "";
-  bool runSwitch = true;
-  while (digitalRead(BUTTON_0_PIN)) {
-    btn1 = digitalRead(BUTTON_1_PIN);
-    btn2 = digitalRead(BUTTON_2_PIN);
-    btn3 = digitalRead(BUTTON_3_PIN);
-    btn4 = digitalRead(BUTTON_4_PIN);
-    if (!btn1) {
-      buttonNumber = 2;
-    } else if (!btn2) {
-      buttonNumber = 1;
-    } else if (!btn3) {
-      buttonNumber = 4;
-    } else if (!btn4) {
-      buttonNumber = 3;
-    }
+void GCodeCtrl::rockerController(){
+  /*
+           2
+           |
+           |    
+          750  
+  1---- 680   358------3
+          260
+           |
+           |
+           4
+  */
 
-    int quadrant = 8;
+  int rocker_X, rocker_Y;
+  unsigned long rockerSpeed;
+  const int btnArray[4] = {BUTTON_2_PIN, BUTTON_1_PIN, BUTTON_4_PIN, BUTTON_3_PIN};
+  int buttonNumber = 1; //没有任何按钮被按下默认=1
+  float dS = 0.1;//厘米
+  float dt;  //秒
+  String joggingCmd[4][4] = {
+    {"X"+String(dS), "X-"+String(dS), "Y-"+String(dS), "Y"+String(dS)},
+    {"X"+String(dS), "X-"+String(dS), "Y-"+String(dS), "Y"+String(dS)},
+    {"X-"+String(dS), "X"+String(dS), "Y"+String(dS), "Y-"+String(dS)},
+    {"X-"+String(dS), "X"+String(dS), "Y"+String(dS), "Y-"+String(dS)}
+  };
+  String finalCmd = "";
+  bool runStop = true;
+  int quadrant = -1; 
+
+  // 加速度设置
+  this->_setAcceleration(1500);
+
+  while (digitalRead(BUTTON_0_PIN)) {
     rocker_Y = analogRead(S_Y_PIN);
     rocker_X = analogRead(S_X_PIN);
-    if (rocker_X < 358 && rocker_Y > 750) {  //第一象限
-      quadrant = 4;
-    } else if (rocker_X > 680 && rocker_Y > 750) {  //第二象限
-      quadrant = 5;
-    } else if (rocker_X > 680 && rocker_Y < 260) { //第三象限
-      quadrant = 6;
-    } else if (rocker_X < 358 && rocker_Y < 260) { //第四象限
-      quadrant = 7;
-    } 
-    else if (rocker_X < 358 && rocker_Y < 750 && rocker_Y > 260 ) { //+x轴
+    if (rocker_X < 358 && rocker_Y < 750 && rocker_Y > 260 ) { //+x轴
       quadrant = 0;
+      rockerSpeed = map(rocker_X, 358, 0, 50, _rockerControllerSpeed);
     } else if (rocker_X > 680 && rocker_Y < 750 && rocker_Y > 260 ) { //-x轴
-      quadrant = 2;
-    } else if (rocker_Y > 750 && rocker_X > 358 && rocker_X < 680 ) { //+Y轴
       quadrant = 1;
+      rockerSpeed = map(rocker_X, 680, 1023, 50, _rockerControllerSpeed);
+    } else if (rocker_Y > 750 && rocker_X > 358 && rocker_X < 680 ) { //+Y轴
+      quadrant = 2;
+      rockerSpeed = map(rocker_Y, 750, 1023, 50, _rockerControllerSpeed);
     } else if (rocker_Y < 260 && rocker_X > 358 && rocker_X < 680 ) { //-Y轴
       quadrant = 3;
+      rockerSpeed = map(rocker_Y, 260, 0, 50, _rockerControllerSpeed);
     } else {
-      quadrant = 8;
+      quadrant = -1; //摇杆归位
     }
-    if (quadrant != 8) {
-      finalCmd = "$J=G91G20" + joggingCmd[quadrant] + 'F' + String(_rockerControllerSpeed) + "\n";
+
+    if (quadrant != -1) {
+      //dt = (dS*10)/(rockerSpeed/60);
+      finalCmd = "$J=G91G20" + joggingCmd[buttonNumber-1][quadrant] + 'F' + String(rockerSpeed) + "\n";
       MySender->serialPort[buttonNumber-1]->print(finalCmd);
-      runSwitch = true;
-      delay(70);
+      runStop = true;
+      delay(map(rockerSpeed,100,_rockerControllerSpeed,50,6));
+      while (!MySender->serialPort[buttonNumber-1]->find("ok")) {} //等待接收ok
     } else {
-      if (runSwitch == true) {
-        MySender->serialPort[buttonNumber-1]->print("!\n");
+      for (int i=0;i<4;i++) {
+        if (!digitalRead(btnArray[i])) { //按钮按下
+          buttonNumber = i+1;
+          break;
+        }
+      }
+      if (runStop == true) {
+        MySender->serialPort[buttonNumber-1]->write(0x85);
+        MySender->serialPort[buttonNumber-1]->write(0x85);
         delay(100);
-        MySender->serialPort[buttonNumber-1]->print("~\n");
-        delay(100);
-        runSwitch = false;
-      } 
+        runStop = false;
+      }
     }
   }
+
+  this->_setAcceleration(STEPPERS_ACCEL);
 }
+
 
 void GCodeCtrl::changeRockerCtrlSpeed(int changeSpeed) {
   _rockerControllerSpeed = changeSpeed;
@@ -790,8 +847,6 @@ void GCodeCtrl::changeSteppersSpeed(){
     }
   }
 }
-
-
 
 void GCodeCtrl::freeControl() {
   MySender->bridgeSerial->println(F("++++++Free Control Begin++++++"));
@@ -1100,141 +1155,7 @@ void GCodeCtrl::dynamicMode2(){
     }
   }
 }
-/*
-void GCodeCtrl::dynamicMode3(){
-  MySender->bridgeSerial->println(F("+++++Dynamic Mode 3++++++"));
-  delay(500);
-  char tempChar2;  //读取第一位
-  bool secLoopQuit = true; //true不退出，false退出
-  bool mainLoopQuit = true;
-  float nextWindow[3][2]; //第一层：窗口中心，第二层：窗口长宽，第三层:窗口方向、角度
-  float homeWindow[3][2]; 
-  int vertexNum;
-  char firstCmdChar;
-  char secondCmdChar;
-  while (1){
-    MySender->bridgeSerial->println(F("Send target window:"));
-    MySender->bridgeSerial->println(F("(c X,c Y)(length,width)(direction,angle)(vexNum)"));
-    MySender->bridgeSerial->println(F("CW=1, CCW=0"));
-    firstCmdChar = "";
-    while(!MySender->bridgeSerial->available()){}
-    if (MySender->bridgeSerial->available()) {
-      //读取第一位信息,'('读取数据，'q'退出，其他unkown
-      firstCmdChar = (char)MySender->bridgeSerial->read();
-      delay(10);
-      switch (firstCmdChar) {
-        case '(':
-            //读取剩余小数信息
-            for (int k=0;k<3;k++) {
-              for (int m=0;m<2;m++) {
-                nextWindow[k][m] = MySender->bridgeSerial->parseFloat();
-              }
-            }
-            vertexNum =  MySender->bridgeSerial->parseInt(); //获取锚点
-            //清空缓冲区
-            while (MySender->bridgeSerial->available()) {
-                MySender->bridgeSerial->read();
-                delay(2);
-            }
-            //打印输入的窗口数据
-            MySender->bridgeSerial->print(F("POS:("));
-            MySender->bridgeSerial->print(nextWindow[0][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[0][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("SIZE:("));
-            MySender->bridgeSerial->print(nextWindow[1][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[1][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("DIR ANGLE:("));
-            MySender->bridgeSerial->print(nextWindow[2][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[2][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("Vertex:"));
-            MySender->bridgeSerial->print(vertexNum);
-            if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,LOW);}
-            //归位写入
-            homeWindow[2][0]=0; //方向
-            homeWindow[2][1]=0; //角度
-            for (int i=0;i<2;i++) {
-              for (int k=0;k<2;k++) {
-                homeWindow[i][k]=nextWindow[i][k];
-              }
-            }
-            this->automaticArrival(homeWindow); //窗口归位
 
-
-            delay(3000);
-            while (1){
-              secLoopQuit = true;
-              MySender->bridgeSerial->println("Ready For Trigger...");
-              delay(100);
-              //等待串口触发
-              while(!MySender->bridgeSerial->available()){}
-              //运行
-              MySender->bridgeSerial->println("GO!");
-              
-              //窗口运行
-              for (int i=0;i<5;i++) {
-                this->runArcToTarget(nextWindow[0],nextWindow[1],vertexNum,nextWindow[2][0],nextWindow[2][1]); 
-                delay(100);
-                this->runArcToTarget(nextWindow[0],nextWindow[1],vertexNum,-nextWindow[2][0],0);
-                delay(100);
-              }
-              
-              
-              //清空缓冲区并等待指令输入
-              MySender->bridgeSerial->println("(Waiting trial time(cmd:)...)");
-              while (MySender->bridgeSerial->available()) {
-                MySender->bridgeSerial->read();
-                delay(2);
-              }
-              delay(TRIAL_TIME*1000);
-              //检查串口是否有等待数据
-              secondCmdChar = "";
-              if (MySender->bridgeSerial->available()) {
-                //读取第一位信息,'('读取数据，'q'退出，其他unkown
-                secondCmdChar = (char)MySender->bridgeSerial->read();
-                switch(secondCmdChar){
-                  case 'q':
-                    secLoopQuit = false;
-                    break;
-                  default:
-                    MySender->bridgeSerial->println(F("Unknown command"));
-                    break;
-                }
-              }
-              if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,LOW);}
-              
-              if (!secLoopQuit){break;}
-            }
-          break;
-        case 'Q':
-          mainLoopQuit = false;
-          break;
-        default:
-          MySender->bridgeSerial->println(F("Unknown command"));
-          while (MySender->bridgeSerial->available()) {
-              MySender->bridgeSerial->read();
-              delay(2);
-          }
-          break;
-      }
-    
-    }
-    if (!mainLoopQuit) {
-      MySender->bridgeSerial->println(F("----Dynamic Mode Finished----"));
-      while (MySender->bridgeSerial->available()) {
-          MySender->bridgeSerial->read();
-          delay(2);
-      }
-      break;
-    }
-  }
-}
-*/
 void GCodeCtrl::dynamicMode3(){
   MySender->bridgeSerial->println(F("+++++Dynamic Mode 3++++++"));
   delay(500);
@@ -1408,122 +1329,39 @@ void GCodeCtrl::dynamicMode3(){
   }
 }
 
-void GCodeCtrl::Debug(){
-  MySender->bridgeSerial->println(F("+++++Dynamic Mode 3++++++"));
-  delay(500);
-  char tempChar2;  //读取第一位
-  bool secLoopQuit = true; //true不退出，false退出
-  bool mainLoopQuit = true;
-  float nextWindow[3][2]; //第一层：窗口中心，第二层：窗口长宽，第三层:窗口方向、角度
-  float homeWindow[3][2]; 
-  int vertexNum;
-  char firstCmdChar;
-  char secondCmdChar;
-  while (1){
-    MySender->bridgeSerial->println(F("Send target window:"));
-    MySender->bridgeSerial->println(F("(c X,c Y)(length,width)(direction,angle)(vexNum)"));
-    MySender->bridgeSerial->println(F("CW=1, CCW=0"));
-    firstCmdChar = "";
-    while(!MySender->bridgeSerial->available()){}
-    if (MySender->bridgeSerial->available()) {
-      //读取第一位信息,'('读取数据，'q'退出，其他unkown
-      firstCmdChar = (char)MySender->bridgeSerial->read();
-      delay(10);
-      switch (firstCmdChar) {
-        case '(':
-            //读取剩余小数信息
-            for (int k=0;k<3;k++) {
-              for (int m=0;m<2;m++) {
-                nextWindow[k][m] = MySender->bridgeSerial->parseFloat();
-              }
-            }
-            vertexNum =  MySender->bridgeSerial->parseInt(); //获取锚点
-            //清空缓冲区
-            while (MySender->bridgeSerial->available()) {
-                MySender->bridgeSerial->read();
-                delay(2);
-            }
-            //打印输入的窗口数据
-            MySender->bridgeSerial->print(F("POS:("));
-            MySender->bridgeSerial->print(nextWindow[0][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[0][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("SIZE:("));
-            MySender->bridgeSerial->print(nextWindow[1][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[1][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("DIR ANGLE:("));
-            MySender->bridgeSerial->print(nextWindow[2][0]);
-            MySender->bridgeSerial->print(",");
-            MySender->bridgeSerial->print(nextWindow[2][1]);
-            MySender->bridgeSerial->println(")");
-            MySender->bridgeSerial->print(F("Vertex:"));
-            MySender->bridgeSerial->print(vertexNum);
-            
-            delay(3000);
-            
-              secLoopQuit = true;
-              MySender->bridgeSerial->println("Ready For Trigger...");
-              delay(100);
-              //等待串口触发
-              while(!MySender->bridgeSerial->available()){}
-              //运行
-              MySender->bridgeSerial->println("GO!");
-              
-              //窗口运行
-              
-              this->runArcToTarget(nextWindow[0],nextWindow[1],vertexNum,nextWindow[2][0],nextWindow[2][1]); 
-              
-              //清空缓冲区并等待指令输入
-              MySender->bridgeSerial->println("(Waiting trial time(cmd:)...)");
-              while (MySender->bridgeSerial->available()) {
-                MySender->bridgeSerial->read();
-                delay(2);
-              }
-              delay(1);
-              //检查串口是否有等待数据
-              secondCmdChar = "";
-              if (MySender->bridgeSerial->available()) {
-                //读取第一位信息,'('读取数据，'q'退出，其他unkown
-                secondCmdChar = (char)MySender->bridgeSerial->read();
-                switch(secondCmdChar){
-                  case 'q':
-                    secLoopQuit = false;
-                    break;
-                  default:
-                    MySender->bridgeSerial->println(F("Unknown command"));
-                    break;
-                }
-              }
-              //归位
-              if (!secLoopQuit){break;}
-            
-          break;
-        case 'Q':
-          mainLoopQuit = false;
-          break;
-        default:
-          MySender->bridgeSerial->println(F("Unknown command"));
-          while (MySender->bridgeSerial->available()) {
-              MySender->bridgeSerial->read();
-              delay(2);
-          }
-          break;
-      }
-    
-    }
-    if (!mainLoopQuit) {
-      MySender->bridgeSerial->println(F("----Dynamic Mode Finished----"));
-      while (MySender->bridgeSerial->available()) {
-          MySender->bridgeSerial->read();
-          delay(2);
-      }
-      break;
+void GCodeCtrl::sleep(float sleepPos[4][2]){
+  MySender->bridgeSerial->println(F("正在关机.."));
+
+  //世界坐标系转化为输出坐标系
+  float outPutPos[4][2];
+  float *ptrOutPutPos = this->_coordinateRebuild(sleepPos);
+  for (int i=0;i<4;i++) {  
+    for (int k=0;k<2;k++) {
+      outPutPos[i][k] = *ptrOutPutPos;
+      ptrOutPutPos++;
     }
   }
+  //cm转mm
+  for (int i=0;i<4;i++) {
+    for (int k=0;k<2;k++) {
+      outPutPos[i][k] = this->_unitConversionToMm(outPutPos[i][k]);
+    }
+  }
+  MySender->sendStraightCmd(outPutPos, _steppersSpeed*2/3);
+
+  for (int i=0;i<4;i++) {
+    for (int k=0;k<2;k++) {
+      _currentCoord[i][k] = sleepPos[i][k];
+    }
+  }
+  this->_eepromWrite();
+  
+  MySender->grblSleep();
+  
+  
 }
+
+
 ////////////////////////PRIVATE////////////////////////
 
 //计算所有源坐标：输入矩形中心点和长宽，输出所有源坐标的首地址
@@ -1635,8 +1473,24 @@ void GCodeCtrl::_eepromRead(){
     }
   }
   #ifdef serialDebug
-  MySender->bridgeSerial->println(F("eepromRead,finished"));
+  for(int i=0;i<4;i++){
+    for(int k=0;k<2;k++){
+      MySender->bridgeSerial->print(_currentCoord[i][k]);
+      MySender->bridgeSerial->print(" ");
+    }
+    MySender->bridgeSerial->println("");    
+  }
+
+  for(int i=0;i<3;i++){
+    for(int k=0;k<2;k++){
+      MySender->bridgeSerial->print(_currentWinData[i][k]);
+      MySender->bridgeSerial->print(" ");
+    }
+    MySender->bridgeSerial->println("");
+  }
+  MySender->bridgeSerial->println(F("eepromWrite,finished"));
   #endif
+
 }
 
 void GCodeCtrl::_bubbleSort(float numArr[], int n){
@@ -1650,4 +1504,17 @@ void GCodeCtrl::_bubbleSort(float numArr[], int n){
       }
     }
   }
+}
+
+void GCodeCtrl::_setAcceleration(float accel){
+  for (int i=0;i<4;i++){
+    MySender->grblsArray[i]->currentCmd = "$120="+String(accel)+"\n";
+  }
+  MySender->sendNowWithoutBack();
+  delay(50);
+  for (int i=0;i<4;i++){
+    MySender->grblsArray[i]->currentCmd = "$121="+String(accel)+"\n";
+  }
+  MySender->sendNowWithoutBack();
+  delay(50);
 }

@@ -69,6 +69,13 @@ class GCodeSender {
 
     //电机暂停指令(时间单位：秒)
     void delayCmd(float delayTime);
+
+    //睡眠模式
+    void grblSleep();
+
+    //grbl是否ok
+    bool grblOKState(int grblIndex);  //检查grbl是否发送ok
+    bool waitGrblOK(int grblIndex, String cmd, long timeOut);  //等待grbl发送ok,接收超时返回false
   
   private:
     

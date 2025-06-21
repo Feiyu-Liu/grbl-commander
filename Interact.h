@@ -6,7 +6,7 @@
 
 
 //实例化
-GCodeCtrl myController(slide, teleL, teleS);  
+GCodeCtrl myController(SLIDE, TELE_L, TELE_S);  
 
 U8GLIB_NHD_C12864 u8g(SCREEN_SCK, SCREEN_MOSI, SCREEN_CS, SCREEN_RS, SCREEN_RST);
 
@@ -135,7 +135,7 @@ float windows[12][3][2]=
 
 //欢迎界面
 void display_1(){
-  String displayWords_1 = F("\nCOMMANDER 4.6 Pro\n\n是否校准?\n1=开始校准, 0=不校准\n");
+  String displayWords_1 = F("\nCOMMANDER 5 Pro\n\n是否校准?\n1=开始校准, 0=不校准\n");
   myController.MySender->bridgeSerial->print(displayWords_1);
   //等待串口回应
   while (!myController.MySender->bridgeSerial->available()) {
@@ -150,22 +150,22 @@ void display_1(){
   if (data == '1') {
     myController.MySender->bridgeSerial->println(F("正在校准..."));
     tone(SPEAKER_PIN,2000, 200);
-    myController.steppersCalibration(compensate); 
+    myController.steppersCalibration(COMPENSATE); 
     myController.MySender->bridgeSerial->println(F("已就绪!"));
   } else if (data == '0') {
     for (int i=0;i<3;i++){
       tone(SPEAKER_PIN,2000, 50);
       delay(100);
     }
-    myController.eepromRead();
+    myController.steppersCalibration();
     delay(10);
     myController.MySender->bridgeSerial->println(F("已就绪!"));
   } else {
     myController.MySender->bridgeSerial->println(F("未知指令，开始校准..."));
-    myController.steppersCalibration(compensate); 
+    myController.steppersCalibration(COMPENSATE); 
     myController.MySender->bridgeSerial->println(F("已就绪!"));
   }
-  String dispalyWord_2 = F(" \n发送预设窗口编号:(1-9) // \nC: 摇杆控制\nV: 速度设置\nF: 窗口自由控制模式\n$: 显示预设窗口\nN: 实验次数显示\n$: 打印预设窗口\n!: 紧急停止\n\nD: 动态实验模式1(窗口绕中心点旋转)\nE: 动态实验模式2(窗口平移)\nG: 动态实验模式3(窗口绕顶点旋转)\n");
+  String dispalyWord_2 = F(" \n发送预设窗口编号:(1-9) // \nC: 摇杆控制\nV: 速度设置\nF: 窗口自由控制模式\n$: 显示预设窗口\nN: 实验次数显示\n$: 打印预设窗口\n!: 紧急停止\nP:关机\n\nD: 动态实验模式1(窗口绕中心点旋转)\nE: 动态实验模式2(窗口平移)\nG: 动态实验模式3(窗口绕顶点旋转)\n");
   myController.MySender->bridgeSerial->println(dispalyWord_2);
 
 }

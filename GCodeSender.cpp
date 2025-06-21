@@ -444,7 +444,7 @@ void GCodeSender::_establishContact(){
     bool note1 = false;
     bool note2 = false;
     while (!serialPort[i]->find("ok")) {
-      this->_serialClean(i+1);
+      this->_serialClean(i);
       serialPort[i]->print("\n");
       myTime = millis() - startTime;
       if (CONTACT_TIMEOUT/4 < myTime && myTime < CONTACT_TIMEOUT && !note1) {
@@ -519,3 +519,52 @@ void GCodeSender::delayCmd(float delayTimeSec){
   delay(10);
 }
 
+bool GCodeSender::grblOKState(int grblIndex) {
+  if (serialPort[grblIndex]->find("ok")) {
+    this->_serialClean(grblIndex);
+    return true;
+  } else {
+    this->_serialClean(grblIndex);
+    return false;
+  }
+}
+
+bool GCodeSender::waitGrblOK(int grblIndex, String cmd, long timeOut){
+  unsigned long startTime = millis();
+  unsigned long myTime;
+  while (!serialPort[grblIndex]->find("ok")) {
+    this->_serialClean(grblIndex);
+    serialPort[grblIndex]->print(cmd);
+    myTime = millis() - startTime;
+    if (timeOut < myTime) {
+      return false;
+    }
+    delay(50);
+  }
+  return true;
+}
+
+void  GCodeSender::grblSleep(){
+  this->_serialClean();
+  bool isSleep = true;
+  unsigned long startTime;
+  unsigned long myTime;
+  for (int i=0; i<4; i++) {
+    startTime = millis();
+    while (!serialPort[i]->find("ok")) {
+      this->_serialClean(i);
+      serialPort[i]->print("$SLP\n");
+      myTime = millis() - startTime;
+      if (60000 < myTime) {
+        isSleep = false;
+      }
+      delay(1000);
+    }
+  }
+  if (isSleep){
+    bridgeSerial->println(F("已关机"));
+    while(1){delay(20000);}
+  } else{
+    bridgeSerial->println(F("关机失败，电机可能未归位"));
+  }
+}
