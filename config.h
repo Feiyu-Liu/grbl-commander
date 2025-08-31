@@ -68,8 +68,8 @@ const float COMPENSATE[4][2] = {
 /////////////////////GCodeCtrl.h/
 /////////////////////////////////
 #define ROCKER_SPEED 500  //摇杆控制电机默认运动速度(不能小于50)
-#define STEPPERS_SPEED 9000  //电机运行默认速度(10000)
-#define STEPPERS_ACCEL 1000  //电机默认加速度(使用摇杆后设置此参数)
+#define STEPPERS_SPEED 50000  //电机运行默认速度
+#define STEPPERS_ACCEL 5000  //电机默认加速度(使用摇杆后设置此参数)
 #define SENDING_DELAY 0 //指令发送等待时间（毫秒）
 #define STRAIGHT_TO_ARC_DELAY 0 //直线转弧形运动等待时间（秒）
 
@@ -77,13 +77,15 @@ const float COMPENSATE[4][2] = {
 //动态实验设置
 #define DYNAMIC_TRIGGER_PIN 22 //动态试验窗口音频trigger引脚
 #define TRIAL_TIME 5 //每次录音时间（s）
-#define KEY_CONFIRM_ON 0 //----是否在每一次trial开始前等待键盘按下
+#define TRIGGER_DELAY 0 //检测到trigger后延迟启动装置的时间（ms）
+#define KEY_CONFIRM_ON 1 //----是否在每一次trial开始前等待键盘按下
 #define DYNAMIC_TRIGGER_ON 0 //-----是否开启窗口开始旋转的音频trigger,1=on,0=off
 #define MOTION_CAPTURE_TRIGGER_ON 0 //-----是否开启动作捕捉trigger
 #define MOTION_CAPTURE_TRIGGER 23 //动作捕捉trigger输入引脚
 #define RASTER_TRIGGER_ON 1 //-----是否开启光栅trigger
 #define RASTER_TRIGGER_IN A7 //光栅trigger模拟输入引脚
 #define RASTER_TRIGGER_THRESHOLD 200 //光栅trigger判断阈值（最大1024对应5v）
+#define LOOP_DELAY 100 //循环反转的等待时间（ms）
 
 //遥杆引脚配置
 #define S_X_PIN A0

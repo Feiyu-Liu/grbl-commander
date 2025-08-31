@@ -34,6 +34,11 @@ void GCodeSender::Debug () {
 }
 #endif
 
+void GCodeSender::serialClean () {
+  _serialClean();
+}
+
+
 void GCodeSender::computerCtrl_Universal () {
   bridgeSerial->println(F("++++++Universal Control Begin++++++"));
   bridgeSerial->println(F("write your command:"));
@@ -287,12 +292,24 @@ bool GCodeSender::sendAnchorArcCmd(float allArcPos[4][2], float winCenterPos[4][
 }
 
 bool GCodeSender::sendNow(){
-  delay(SENDING_DELAY_TIME);
-  serialPort[0]->print(grblsArray[0]->currentCmd);
-  serialPort[1]->print(grblsArray[1]->currentCmd);
-  serialPort[2]->print(grblsArray[2]->currentCmd);
-  serialPort[3]->print(grblsArray[3]->currentCmd);
-  delay(SENDING_DELAY_TIME);
+  if (_senderSequence) {
+    delay(SENDING_DELAY_TIME);
+    serialPort[0]->print(grblsArray[0]->currentCmd);
+    serialPort[1]->print(grblsArray[1]->currentCmd);
+    serialPort[2]->print(grblsArray[2]->currentCmd);
+    serialPort[3]->print(grblsArray[3]->currentCmd);
+    delay(SENDING_DELAY_TIME);
+    _senderSequence = false;
+  } else {
+    delay(SENDING_DELAY_TIME);
+    serialPort[3]->print(grblsArray[3]->currentCmd);
+    serialPort[2]->print(grblsArray[2]->currentCmd);
+    serialPort[1]->print(grblsArray[1]->currentCmd);
+    serialPort[0]->print(grblsArray[0]->currentCmd);
+    delay(SENDING_DELAY_TIME);
+    _senderSequence = true;
+  }
+  
   bool returnState;
   String returnString[4];
   for (int i=0; i<4; i++) {
@@ -339,14 +356,25 @@ bool GCodeSender::sendNow(){
 }
 
 bool GCodeSender::sendNowWithoutBack() {
-  this->_serialClean();
-  delay(SENDING_DELAY_TIME);
-  serialPort[0]->print(grblsArray[0]->currentCmd);
-  serialPort[1]->print(grblsArray[1]->currentCmd);
-  serialPort[2]->print(grblsArray[2]->currentCmd);
-  serialPort[3]->print(grblsArray[3]->currentCmd);
-  delay(SENDING_DELAY_TIME);
-  this->_serialClean();
+  // this->_serialClean();
+  if (_senderSequence) {
+    delay(SENDING_DELAY_TIME);
+    serialPort[0]->print(grblsArray[0]->currentCmd);
+    serialPort[1]->print(grblsArray[1]->currentCmd);
+    serialPort[2]->print(grblsArray[2]->currentCmd);
+    serialPort[3]->print(grblsArray[3]->currentCmd);
+    delay(SENDING_DELAY_TIME);
+    _senderSequence = false;
+  } else {
+    delay(SENDING_DELAY_TIME);
+    serialPort[3]->print(grblsArray[3]->currentCmd);
+    serialPort[2]->print(grblsArray[2]->currentCmd);
+    serialPort[1]->print(grblsArray[1]->currentCmd);
+    serialPort[0]->print(grblsArray[0]->currentCmd);
+    delay(SENDING_DELAY_TIME);
+    _senderSequence = true;
+  }
+  // this->_serialClean(); 
   return true;
 }
 
@@ -527,6 +555,23 @@ bool GCodeSender::grblOKState(int grblIndex) {
     this->_serialClean(grblIndex);
     return false;
   }
+}
+
+
+bool GCodeSender::isGrblStepping(int grblIndex) {
+
+  serialPort[grblIndex]->print("?");
+
+  while(!serialPort[grblIndex]->available() > 4){}
+  
+  String res = serialPort[grblIndex]->readString();
+
+  if (res.indexOf("Run") != -1) {
+    return true;
+  } else {
+    return false;
+  }
+
 }
 
 bool GCodeSender::waitGrblOK(int grblIndex, String cmd, long timeOut){

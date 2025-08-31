@@ -21,7 +21,6 @@ void setup() {
   analogWrite(SCREEN_LED_PIN, SCREEN_LED_BRIGHTNESS); //亮度设置
   delay(100);
   display_1();
-
 }
 
 void loop() { 
@@ -105,23 +104,30 @@ void loop() {
         delay(500);
         break;
       case 'd': case 'D': //动态实验模式（窗口绕中心点旋转）
-        myController.MySender->bridgeSerial->println(F("动态实验模式(绕中心点旋转)"));
+        myController.MySender->bridgeSerial->println(F("动态实验模式1(绕中心点旋转)"));
         tone(SPEAKER_PIN,2000, 50);
         myController.dynamicMode();
         tone(SPEAKER_PIN,2000, 50);
         delay(500);
         break;
       case 'e': case 'E': //动态实验模式（窗口平移）
-        myController.MySender->bridgeSerial->println(F("动态实验模式(平移)"));
+        myController.MySender->bridgeSerial->println(F("动态实验模式2(平移)"));
         tone(SPEAKER_PIN,2000, 50);
         myController.dynamicMode2();
         tone(SPEAKER_PIN,2000, 50);
         delay(500);
         break;
       case 'g': case 'G': //动态实验模式（窗口绕顶点旋转）
-        myController.MySender->bridgeSerial->println(F("动态实验模式(绕顶点旋转)"));
+        myController.MySender->bridgeSerial->println(F("动态实验模式3(绕顶点旋转)"));
         tone(SPEAKER_PIN,2000, 50);
         myController.dynamicMode3();
+        tone(SPEAKER_PIN,2000, 50);
+        delay(500);
+        break;
+      case 'h': case 'H': //动态实验模式（窗口往复移动）
+        myController.MySender->bridgeSerial->println(F("动态实验模式4(往复移动"));
+        tone(SPEAKER_PIN,2000, 50);
+        myController.dynamicMode4();
         tone(SPEAKER_PIN,2000, 50);
         delay(500);
         break;

@@ -1,3 +1,4 @@
+#include "Arduino.h"
 
 #include "GCodeCtrl.h"
 
@@ -983,6 +984,8 @@ void GCodeCtrl::dynamicMode(){
               }
               //运行
               //if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
+              //等待trigger延迟
+              delay(TRIGGER_DELAY);
               this->automaticArrival(nextWindow); //窗口运行
               MySender->bridgeSerial->println("GO!");
               
@@ -1115,6 +1118,8 @@ void GCodeCtrl::dynamicMode2(){
               if (RASTER_TRIGGER_ON) {
                 while(analogRead(RASTER_TRIGGER_IN) < RASTER_TRIGGER_THRESHOLD){}
               }
+              //等待trigger延迟
+              delay(TRIGGER_DELAY);
               //运行
               if (DYNAMIC_TRIGGER_ON) {digitalWrite(DYNAMIC_TRIGGER_PIN,HIGH);} //给声卡trigger
               //窗口运行
@@ -1305,7 +1310,7 @@ void GCodeCtrl::dynamicMode3(){
               if (MySender->bridgeSerial->available()) {
                 //读取第一位信息,'('读取数据，'q'退出，其他unkown
                 secondCmdChar = (char)MySender->bridgeSerial->read();
-                switch(secondCmdChar){
+                switch(secondCmdChar) {
                   case 'q':
                     secLoopQuit = false;
                     break;
@@ -1318,6 +1323,155 @@ void GCodeCtrl::dynamicMode3(){
 
               // this->automaticArrival(homeWindow);
               
+              if (!secLoopQuit){break;}
+            }
+          break;
+        case 'Q':
+          mainLoopQuit = false;
+          break;
+        default:
+          MySender->bridgeSerial->println(F("Unknown command"));
+          while (MySender->bridgeSerial->available()) {
+              MySender->bridgeSerial->read();
+              delay(2);
+          }
+          break;
+      }
+    
+    }
+    if (!mainLoopQuit) {
+      MySender->bridgeSerial->println(F("----Dynamic Mode Finished----"));
+      while (MySender->bridgeSerial->available()) {
+          MySender->bridgeSerial->read();
+          delay(2);
+      }
+      break;
+    }
+  }
+}
+
+
+void GCodeCtrl::dynamicMode4(){
+  MySender->bridgeSerial->println(F("+++++Dynamic Mode 4++++++"));
+  delay(500);
+  char tempChar2;  //读取第一位
+  bool secLoopQuit = true; //true不退出，false退出
+  bool mainLoopQuit = true;
+  bool toggle = true; //运动方向开关
+  int toggleDelay = 0;
+  float nextWindow[3][2]; //第一层：窗口中心，第二层：窗口长宽，第三层:窗口方向、角度
+  float homeWindow[3][2];
+  char firstCmdChar;
+  char secondCmdChar;
+  while (1){
+    MySender->bridgeSerial->println(F("Send target window:"));
+    MySender->bridgeSerial->println(F("(center X,center Y)(length,width)(0,0)"));
+    MySender->bridgeSerial->println(F("CW=1, CCW=0"));
+    firstCmdChar = "";
+    while(!MySender->bridgeSerial->available()){}
+    if (MySender->bridgeSerial->available()) {
+      //读取第一位信息,'('读取数据，'q'退出，其他unkown
+      firstCmdChar = (char)MySender->bridgeSerial->read();
+      delay(10);
+      switch (firstCmdChar) {
+        case '(':
+            //读取剩余小数信息
+            for (int k=0;k<3;k++) {
+              for (int m=0;m<2;m++) {
+                nextWindow[k][m] = MySender->bridgeSerial->parseFloat();
+              }
+            }
+            //清空缓冲区
+            while (MySender->bridgeSerial->available()) {
+                MySender->bridgeSerial->read();
+                delay(2);
+            }
+            //打印输入的窗口数据
+            MySender->bridgeSerial->println("POS:("+String(nextWindow[0][0])+","+String(nextWindow[0][1])+")");
+            MySender->bridgeSerial->println("SIZE:("+String(nextWindow[1][0])+","+String(nextWindow[1][1])+")");
+            MySender->bridgeSerial->println("DIR ANGLE:("+String(nextWindow[2][0])+","+String(nextWindow[2][1])+")");
+
+            //归位写入
+            MySender->bridgeSerial->println(F("Send home window:"));
+            while(!MySender->bridgeSerial->available()){}
+            for (int k=0;k<3;k++) {
+              for (int m=0;m<2;m++) {
+                homeWindow[k][m] = MySender->bridgeSerial->parseFloat();
+              }
+            }
+            
+            while (MySender->bridgeSerial->available()) {
+                MySender->bridgeSerial->read();
+                delay(2);
+            }
+            MySender->bridgeSerial->println("POS:("+String(homeWindow[0][0])+","+String(homeWindow[0][1])+")");
+            MySender->bridgeSerial->println("SIZE:("+String(homeWindow[1][0])+","+String(homeWindow[1][1])+")");
+            MySender->bridgeSerial->println("DIR ANGLE:("+String(homeWindow[2][0])+","+String(homeWindow[2][1])+")");
+            
+            //delaytime
+            // MySender->bridgeSerial->println(F("Send toggle delay time(ms):"));
+            // while(!MySender->bridgeSerial->available()){}
+            // toggleDelay = MySender->bridgeSerial->parseInt();
+            
+            // while (MySender->bridgeSerial->available()) {
+            //     MySender->bridgeSerial->read();
+            //     delay(2);
+            // }
+
+            // MySender->bridgeSerial->println("Delay Time:"+ String(toggleDelay));
+            
+
+            this->automaticArrival(homeWindow); //窗口运行
+            
+            MySender->serialClean();
+
+            delay(1000);
+
+            //等待串口触发
+            MySender->bridgeSerial->println("Ready For Trigger('p' for pause; 'q' for stop)...");
+            while(!MySender->bridgeSerial->available()){}
+
+            while (1){
+              
+              secLoopQuit = true;
+
+              // 往复运行
+              if (toggle) {
+                this->automaticArrival(nextWindow);
+                toggle = false;
+              } else {
+                this->automaticArrival(homeWindow);
+                toggle = true;
+              }
+
+              // 等待窗口运行完成,以1为准
+              // delay(toggleDelay);
+              
+
+              bool isRun = true;
+              
+              while(MySender->isGrblStepping(0)){
+              }
+
+              //检查串口是否有等待数据
+              secondCmdChar = "";
+              if (MySender->bridgeSerial->available()) {
+                //读取第一位信息,'('读取数据，'q'退出，其他unkown
+                secondCmdChar = (char)MySender->bridgeSerial->read();
+                switch(secondCmdChar){
+                  case 'q':
+                    secLoopQuit = false;
+                    break;
+                  case 'p':
+                    MySender->bridgeSerial->println(F("Pause...(Press any key to recover)"));
+                    MySender->serialClean();
+                    while(!MySender->bridgeSerial->available()){}
+                    break;
+                  default:
+                    MySender->bridgeSerial->println(F("Unknown command"));
+                    break;
+                }
+              }
               if (!secLoopQuit){break;}
             }
           break;

@@ -76,9 +76,15 @@ class GCodeSender {
     //grbl是否ok
     bool grblOKState(int grblIndex);  //检查grbl是否发送ok
     bool waitGrblOK(int grblIndex, String cmd, long timeOut);  //等待grbl发送ok,接收超时返回false
-  
-  private:
+    bool isGrblStepping(int grblIndex); //检查Grbl是否在步进,会block程序运行
+
+    //public clean
+    void serialClean();
     
+  private:
+    // 控制发送grbl的顺序，以补偿延迟
+    bool _senderSequence = true;
+
     //Tools：
     //检查各串口是否有效连接    
     void _establishContact();

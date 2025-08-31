@@ -151,6 +151,7 @@ void display_1(){
     myController.MySender->bridgeSerial->println(F("正在校准..."));
     tone(SPEAKER_PIN,2000, 200);
     myController.steppersCalibration(COMPENSATE); 
+    tone(SPEAKER_PIN,2000, 200);
     myController.MySender->bridgeSerial->println(F("已就绪!"));
   } else if (data == '0') {
     for (int i=0;i<3;i++){
@@ -163,9 +164,10 @@ void display_1(){
   } else {
     myController.MySender->bridgeSerial->println(F("未知指令，开始校准..."));
     myController.steppersCalibration(COMPENSATE); 
+    tone(SPEAKER_PIN,2000, 200);
     myController.MySender->bridgeSerial->println(F("已就绪!"));
   }
-  String dispalyWord_2 = F(" \n发送预设窗口编号:(1-9) // \nC: 摇杆控制\nV: 速度设置\nF: 窗口自由控制模式\n$: 显示预设窗口\nN: 实验次数显示\n$: 打印预设窗口\n!: 紧急停止\nP:关机\n\nD: 动态实验模式1(窗口绕中心点旋转)\nE: 动态实验模式2(窗口平移)\nG: 动态实验模式3(窗口绕顶点旋转)\n");
+  String dispalyWord_2 = F(" \n发送预设窗口编号:(1-9) // \nC: 摇杆控制\nV: 速度设置\nF: 窗口自由控制模式\n$: 显示预设窗口\nN: 实验次数显示\n$: 打印预设窗口\n!: 紧急停止\nP:关机\n\nD: 动态实验模式1(窗口绕中心点旋转)\nE: 动态实验模式2(窗口平移)\nG: 动态实验模式3(窗口绕顶点旋转)\nH: 动态实验模式4(窗口往复移动)\n");
   myController.MySender->bridgeSerial->println(dispalyWord_2);
 
 }

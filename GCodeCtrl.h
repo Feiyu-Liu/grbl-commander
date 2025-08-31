@@ -50,6 +50,7 @@ class GCodeCtrl {
     void dynamicMode();  //动态试验模式（窗口绕中心点旋转）
     void dynamicMode2();  //动态试验模式2（窗口平移）
     void dynamicMode3();  //动态试验模式3（窗口绕顶点旋转）
+    void dynamicMode4();  //动态实验模式4（窗口持续反复平移）
 
     #ifdef voidDebug
     void Debug();
